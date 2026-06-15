@@ -90,13 +90,34 @@ payment-system
 | schema.sql         | Database creation scripts            |
 
 ---
+## Current Progress
+
+### Completed Stories
+
+* Project Setup (Spring Boot Base Structure)
+* Database Setup (MySQL Schema + Connection)
+
+### Current Story
+
+* Payment Core Design (API + Flow Design)
+
+### Next Milestones
+
+* DTO Implementation
+* Controller Layer
+* Service Layer
+* Exception Handling
+* Payment Processing Flow
+* Gateway Integration
+
+
 
 ## Upcoming Work
 
 ### Database Layer
 
-* Create JPA entities
-* Create repositories
+* Create JPA entities  
+* Create repositories  
 * Verify CRUD operations
 
 ### Payment Core
