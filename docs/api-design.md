@@ -124,6 +124,37 @@ Returns payment details and current transaction status.
   "customerEmail": "customer@example.com"
 }
 ```
+# Database Mapping
+
+## Table Mapping
+
+Entity: PaymentTransaction
+
+Database Table:
+
+payment_transactions
+
+### Column Mapping
+
+| Database Column | Entity Field | Data Type |
+|----------------|-------------|-----------|
+| id | id | Long |
+| transaction_id | transactionId | String |
+| amount | amount | BigDecimal |
+| currency | currency | String |
+| payment_method | paymentMethod | String |
+| status | status | String |
+| customer_email | customerEmail | String |
+| created_at | createdAt | LocalDateTime |
+| updated_at | updatedAt | LocalDateTime |
+
+### Notes
+
+- The `id` column is the database primary key.
+- The `transaction_id` field is the business identifier exposed through APIs.
+- Database timestamps are maintained for audit and tracking purposes.
+- API request and response DTOs are mapped to the `PaymentTransaction` entity through the service layer.
+
 
 ### Validation Rules
 
@@ -238,3 +269,82 @@ Status: Approved for Implementation
 
 Next Story:
 Payment API Implementation
+
+### Architecture Review Result
+
+# Payment Core Design Review
+
+Date: 2026-06-15
+
+Reviewer: Pranjali
+
+## Review Summary
+
+The Payment Core API and Flow Design was reviewed for:
+
+* API consistency
+* REST endpoint design
+* Request/response structure
+* Payment lifecycle
+* Error handling
+* Database compatibility
+* Future extensibility
+
+## Findings
+
+### API Design
+
+Status: Approved
+
+Endpoints follow REST conventions and provide the minimum functionality required for payment creation and status retrieval.
+
+### DTO Design
+
+Status: Approved
+
+Request and response objects are concise and support current business requirements.
+
+### Database Mapping
+
+Status: Approved
+
+API request and response models correctly align with the PaymentTransaction entity and payment_transactions database table.
+### Payment Lifecycle
+
+Status: Approved
+
+The initial lifecycle:
+
+PENDING → SUCCESS / FAILED
+
+is sufficient for MVP implementation.
+
+### Error Handling
+
+Status: Approved
+
+Error responses are standardized and suitable for frontend integration.
+
+### Database Compatibility
+
+Status: Approved
+
+API design aligns with the payment_transactions schema and PaymentTransaction entity.
+
+### Future Extensibility
+
+Status: Approved
+
+The design allows future implementation of:
+
+* Gateway Integration
+* Webhooks
+* Refunds
+* Audit Logging
+* Reconciliation
+
+## Final Decision
+
+APPROVED
+
+The design is ready for implementation.
