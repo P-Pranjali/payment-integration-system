@@ -1,8 +1,15 @@
 HELP.md
 
 .env
+
+
+# Project documentation (work in progress)
 docs/
+
+# Database scripts (work in progress)
 src/main/resources/db/
+
+
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
