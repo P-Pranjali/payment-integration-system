@@ -1,5 +1,6 @@
 package com.company.payment_system.entity;
 
+import com.company.payment_system.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,8 +32,9 @@ public class PaymentTransaction {
     @Column(name = "payment_method", nullable = false, length = 30)
     private String paymentMethod;
 
-    @Column(nullable = false, length = 20)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false, length=20)
+    private PaymentStatus status;
 
     @Column(name = "customer_email", length = 100)
     private String customerEmail;
