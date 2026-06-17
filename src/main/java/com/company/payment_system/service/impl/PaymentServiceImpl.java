@@ -3,11 +3,16 @@ package com.company.payment_system.service.impl;
 import com.company.payment_system.dto.PaymentRequest;
 import com.company.payment_system.dto.PaymentResponse;
 import com.company.payment_system.entity.PaymentTransaction;
+import com.company.payment_system.enums.PaymentStatus;
 import com.company.payment_system.repository.PaymentTransactionRepository;
 import com.company.payment_system.service.PaymentService;
 import com.company.payment_system.util.TransactionIdGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.util.Random;
+import com.company.payment_system.enums.PaymentStatus;
+import com.company.payment_system.dto.ProcessPaymentResponse;
+import com.company.payment_system.exception.InvalidPaymentStateException;
 
 import java.time.LocalDateTime;
 import com.company.payment_system.dto.PaymentStatusResponse;
@@ -30,7 +35,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .currency(request.getCurrency())
                 .paymentMethod(request.getPaymentMethod())
                 .customerEmail(request.getCustomerEmail())
-                .status("PENDING")
+                .status(PaymentStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -39,7 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         return PaymentResponse.builder()
                 .transactionId(transactionId)
-                .status("PENDING")
+                .status(PaymentStatus.PENDING.name())
                 .message("Payment initiated successfully")
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -57,9 +62,51 @@ public class PaymentServiceImpl implements PaymentService {
                 .amount(transaction.getAmount())
                 .currency(transaction.getCurrency())
                 .paymentMethod(transaction.getPaymentMethod())
-                .status(transaction.getStatus())
+                .status(transaction.getStatus().name())
                 .customerEmail(transaction.getCustomerEmail())
                 .createdAt(transaction.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    public ProcessPaymentResponse processPayment(
+            String transactionId, PaymentStatus forceStatus) {
+
+        PaymentTransaction transaction = repository
+                .findByTransactionId(transactionId)
+                .orElseThrow(() ->
+                        new PaymentNotFoundException(transactionId));
+
+        if (transaction.getStatus() != PaymentStatus.PENDING) {
+
+            throw new InvalidPaymentStateException(
+                    transaction.getStatus().name());
+        }
+
+        Random random = new Random();
+
+        PaymentStatus finalStatus;
+        if (forceStatus != null) {
+
+            finalStatus = forceStatus;
+
+        } else {
+
+            finalStatus =
+                    random.nextBoolean()
+                            ? PaymentStatus.SUCCESS
+                            : PaymentStatus.FAILED;
+        }
+        transaction.setStatus(finalStatus);
+        transaction.setUpdatedAt(LocalDateTime.now());
+
+        repository.save(transaction);
+
+        return ProcessPaymentResponse.builder()
+                .transactionId(transaction.getTransactionId())
+                .status(finalStatus.name())
+                .message("Payment processed successfully")
+                .processedAt(LocalDateTime.now())
                 .build();
     }
 }

@@ -2,6 +2,8 @@ package com.company.payment_system.controller;
 
 import com.company.payment_system.dto.PaymentRequest;
 import com.company.payment_system.dto.PaymentResponse;
+import com.company.payment_system.dto.ProcessPaymentResponse;
+import com.company.payment_system.enums.PaymentStatus;
 import com.company.payment_system.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,17 @@ public class PaymentController {
 
         PaymentStatusResponse response =
                 paymentService.getPaymentByTransactionId(transactionId);
+
+        return ResponseEntity.ok(response);
+    }
+    @PostMapping("/{transactionId}/process")
+    public ResponseEntity<ProcessPaymentResponse> processPayment(
+            @PathVariable String transactionId,
+            @RequestParam(required = false)
+            PaymentStatus forceStatus) {
+
+        ProcessPaymentResponse response =
+                paymentService.processPayment(transactionId, forceStatus);
 
         return ResponseEntity.ok(response);
     }
