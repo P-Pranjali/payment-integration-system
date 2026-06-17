@@ -1,25 +1,25 @@
 package com.company.payment_system.service.impl;
 
-import com.company.payment_system.dto.PaymentRequest;
-import com.company.payment_system.dto.PaymentResponse;
+import com.company.payment_system.dto.*;
 import com.company.payment_system.entity.PaymentTransaction;
 import com.company.payment_system.enums.PaymentStatus;
 import com.company.payment_system.repository.PaymentTransactionRepository;
 import com.company.payment_system.service.PaymentService;
 import com.company.payment_system.util.TransactionIdGenerator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import java.util.Random;
+
 import com.company.payment_system.enums.PaymentStatus;
-import com.company.payment_system.dto.ProcessPaymentResponse;
 import com.company.payment_system.exception.InvalidPaymentStateException;
 
 import java.time.LocalDateTime;
-import com.company.payment_system.dto.PaymentStatusResponse;
+
 import com.company.payment_system.exception.PaymentNotFoundException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentTransactionRepository repository;
@@ -68,45 +68,52 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+
     @Override
-    public ProcessPaymentResponse processPayment(
-            String transactionId, PaymentStatus forceStatus) {
+    public WebhookResponse updatePaymentStatus(WebhookRequest request) {
+
+        log.info("Webhook received for transactionId={}, requestedStatus={}",
+                request.getTransactionId(),
+                request.getPaymentStatus());
 
         PaymentTransaction transaction = repository
-                .findByTransactionId(transactionId)
+                .findByTransactionId(request.getTransactionId())
                 .orElseThrow(() ->
-                        new PaymentNotFoundException(transactionId));
+                        new PaymentNotFoundException(
+                                request.getTransactionId()));
 
-        if (transaction.getStatus() != PaymentStatus.PENDING) {
+        log.info("Current status of transaction {} is {}",
+                transaction.getTransactionId(),
+                transaction.getStatus());
+
+        if(transaction.getStatus() != PaymentStatus.PENDING){
+
+            log.warn(
+                    "Invalid status transition attempted for transaction {}. Current status: {}",
+                    transaction.getTransactionId(),
+                    transaction.getStatus());
+
 
             throw new InvalidPaymentStateException(
-                    transaction.getStatus().name());
+                    transaction.getStatus().name()
+            );
         }
 
-        Random random = new Random();
-
-        PaymentStatus finalStatus;
-        if (forceStatus != null) {
-
-            finalStatus = forceStatus;
-
-        } else {
-
-            finalStatus =
-                    random.nextBoolean()
-                            ? PaymentStatus.SUCCESS
-                            : PaymentStatus.FAILED;
-        }
-        transaction.setStatus(finalStatus);
+        transaction.setStatus(request.getPaymentStatus());
         transaction.setUpdatedAt(LocalDateTime.now());
 
         repository.save(transaction);
 
-        return ProcessPaymentResponse.builder()
+        log.info(
+                "Payment status updated successfully. transactionId={}, newStatus={}",
+                transaction.getTransactionId(),
+                transaction.getStatus());
+
+        return WebhookResponse.builder()
                 .transactionId(transaction.getTransactionId())
-                .status(finalStatus.name())
-                .message("Payment processed successfully")
-                .processedAt(LocalDateTime.now())
+                .status(transaction.getStatus().name())
+                .message("Payment status updated successfully")
+                .updatedAt(transaction.getUpdatedAt())
                 .build();
     }
 }

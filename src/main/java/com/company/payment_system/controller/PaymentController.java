@@ -1,8 +1,6 @@
 package com.company.payment_system.controller;
 
-import com.company.payment_system.dto.PaymentRequest;
-import com.company.payment_system.dto.PaymentResponse;
-import com.company.payment_system.dto.ProcessPaymentResponse;
+import com.company.payment_system.dto.*;
 import com.company.payment_system.enums.PaymentStatus;
 import com.company.payment_system.service.PaymentService;
 import jakarta.validation.Valid;
@@ -10,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.company.payment_system.dto.PaymentStatusResponse;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -39,15 +36,14 @@ public class PaymentController {
 
         return ResponseEntity.ok(response);
     }
-    @PostMapping("/{transactionId}/process")
-    public ResponseEntity<ProcessPaymentResponse> processPayment(
-            @PathVariable String transactionId,
-            @RequestParam(required = false)
-            PaymentStatus forceStatus) {
 
-        ProcessPaymentResponse response =
-                paymentService.processPayment(transactionId, forceStatus);
+    @PostMapping("/webhook")
+    public ResponseEntity<WebhookResponse> updatePaymentStatus(
+            @Valid  @RequestBody WebhookRequest request
+    ){
+        WebhookResponse response = paymentService.updatePaymentStatus(request);
 
         return ResponseEntity.ok(response);
+
     }
 }

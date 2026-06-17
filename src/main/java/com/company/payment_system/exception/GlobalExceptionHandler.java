@@ -1,6 +1,7 @@
 package com.company.payment_system.exception;
 
 import com.company.payment_system.dto.ErrorResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,6 +11,7 @@ import com.company.payment_system.exception.PaymentNotFoundException;
 import java.time.LocalDateTime;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -32,7 +34,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PaymentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handlePaymentNotFoundException(
             PaymentNotFoundException ex) {
-
+        log.error("Payment not found: {}", ex.getMessage());
         ErrorResponse error = ErrorResponse.builder()
                 .message(ex.getMessage())
                 .status(HttpStatus.NOT_FOUND.value())
@@ -46,7 +48,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex) {
-
+        log.error("Unexpected error occurred", ex);
         ErrorResponse error = ErrorResponse.builder()
                 .message(ex.getMessage())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
@@ -61,6 +63,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse>
     handleInvalidPaymentStateException(
             InvalidPaymentStateException ex) {
+        log.warn("Payment validation failed: {}", ex.getMessage());
 
         ErrorResponse error = ErrorResponse.builder()
                 .message(ex.getMessage())
