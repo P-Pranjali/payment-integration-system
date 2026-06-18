@@ -46,4 +46,14 @@ public class PaymentController {
         return ResponseEntity.ok(response);
 
     }
+
+    @PostMapping("/{transactionId}/retry")
+    public ResponseEntity<RetryPaymentResponse> retryPayment(
+            @PathVariable String transactionId) {
+
+        RetryPaymentResponse response =
+                paymentService.retryPayment(transactionId);
+
+        return ResponseEntity.ok(response);
+    }
 }

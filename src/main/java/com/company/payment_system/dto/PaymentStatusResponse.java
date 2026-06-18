@@ -19,4 +19,7 @@ public class PaymentStatusResponse {
     private String status;
     private String customerEmail;
     private LocalDateTime createdAt;
+    private Integer retryCount;
+
+    private Integer maxRetryCount;
 }

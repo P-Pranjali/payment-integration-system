@@ -10,4 +10,7 @@ public interface PaymentService {
     PaymentStatusResponse getPaymentByTransactionId(String transactionId);
 
     WebhookResponse updatePaymentStatus(WebhookRequest request);
+
+    RetryPaymentResponse retryPayment(String transactionId);
+
 }

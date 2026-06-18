@@ -32,6 +32,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(request.getPaymentMethod())
                 .customerEmail(request.getCustomerEmail())
                 .status(PaymentStatus.PENDING)
+                .retryCount(0)
+                .maxRetryCount(3)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -59,6 +61,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .currency(transaction.getCurrency())
                 .paymentMethod(transaction.getPaymentMethod())
                 .status(transaction.getStatus().name())
+                .retryCount(transaction.getRetryCount())
+                .maxRetryCount(transaction.getMaxRetryCount())
                 .customerEmail(transaction.getCustomerEmail())
                 .createdAt(transaction.getCreatedAt())
                 .build();
@@ -108,6 +112,13 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         transaction.setStatus(request.getPaymentStatus());
+        if(request.getPaymentStatus() == PaymentStatus.FAILED){
+            log.info(
+                    "Transaction {} moved to FAILED state. retry count = {} ",
+                    transaction.getTransactionId(),
+                    transaction.getRetryCount()
+            );
+        }
         transaction.setUpdatedAt(LocalDateTime.now());
 
         repository.save(transaction);
@@ -122,6 +133,71 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(transaction.getStatus().name())
                 .message("Payment status updated successfully")
                 .updatedAt(transaction.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    public RetryPaymentResponse retryPayment(String transactionId) {
+
+        PaymentTransaction transaction = repository
+                .findByTransactionId(transactionId)
+                .orElseThrow(() ->
+                        new PaymentNotFoundException(transactionId));
+
+        log.info(
+                "Retry requested for transaction {}",
+                transactionId);
+
+        if (transaction.getStatus() != PaymentStatus.FAILED) {
+
+            log.warn(
+                    "Retry rejected for transaction {} because current status is {}",
+                    transactionId,
+                    transaction.getStatus());
+
+            throw new InvalidPaymentStateException(
+                    transaction.getStatus().name()+
+                    ". Retry allowed only for FAILED transactions");
+        }
+
+        if (transaction.getRetryCount() >= transaction.getMaxRetryCount()) {
+
+            log.warn(
+                    "Maximum retry limit exceeded for transaction {}",
+                    transactionId);
+
+            throw new InvalidPaymentStateException(
+                    "Maximum retry limit exceeded");
+        }
+
+        PaymentStatus previousStatus = transaction.getStatus();
+        Integer currentRetryCount = transaction.getRetryCount() == null
+                ?0
+                : transaction.getRetryCount();
+
+        transaction.setRetryCount(
+                transaction.getRetryCount() + 1);
+
+        transaction.setStatus(PaymentStatus.PROCESSING);
+
+        transaction.setLastRetryAt(LocalDateTime.now());
+
+        transaction.setUpdatedAt(LocalDateTime.now());
+
+        repository.save(transaction);
+
+        log.info(
+                "Retry initiated successfully. transactionId={}, retryCount={}",
+                transaction.getTransactionId(),
+                transaction.getRetryCount());
+
+        return RetryPaymentResponse.builder()
+                .transactionId(transaction.getTransactionId())
+                .previousStatus(previousStatus.name())
+                .currentStatus(transaction.getStatus().name())
+                .retryCount(transaction.getRetryCount())
+                .message("Payment retry initiated successfully")
+                .retryTime(transaction.getLastRetryAt())
                 .build();
     }
 

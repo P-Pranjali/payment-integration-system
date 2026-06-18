@@ -44,4 +44,13 @@ public class PaymentTransaction {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "retry_count")
+    private Integer retryCount;
+
+    @Column(name = "max_retry_count")
+    private Integer maxRetryCount;
+
+    @Column(name = "last_retry_at")
+    private LocalDateTime lastRetryAt;
 }
