@@ -9,12 +9,8 @@ import com.company.payment_system.util.TransactionIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import com.company.payment_system.enums.PaymentStatus;
 import com.company.payment_system.exception.InvalidPaymentStateException;
-
 import java.time.LocalDateTime;
-
 import com.company.payment_system.exception.PaymentNotFoundException;
 
 @Service
@@ -86,7 +82,18 @@ public class PaymentServiceImpl implements PaymentService {
                 transaction.getTransactionId(),
                 transaction.getStatus());
 
-        if(transaction.getStatus() != PaymentStatus.PENDING){
+        //If webhook is repeating SAME status → IGNORE (idempotency)
+        if (transaction.getStatus() == request.getPaymentStatus()){
+            return WebhookResponse.builder()
+                    .transactionId(transaction.getTransactionId())
+                    .status(transaction.getStatus().name())
+                    .message("Duplicate webhook ignored (idempotent processing)")
+                    .updatedAt(transaction.getUpdatedAt())
+                    .build();
+        }
+
+        //If transaction already in FINAL state → BLOCK
+        if(transaction.getStatus().isFinal()){
 
             log.warn(
                     "Invalid status transition attempted for transaction {}. Current status: {}",
@@ -95,9 +102,10 @@ public class PaymentServiceImpl implements PaymentService {
 
 
             throw new InvalidPaymentStateException(
-                    transaction.getStatus().name()
+                   "Transaction already finalized: " +  transaction.getStatus()
             );
         }
+
 
         transaction.setStatus(request.getPaymentStatus());
         transaction.setUpdatedAt(LocalDateTime.now());
@@ -116,4 +124,5 @@ public class PaymentServiceImpl implements PaymentService {
                 .updatedAt(transaction.getUpdatedAt())
                 .build();
     }
+
 }
