@@ -45,6 +45,24 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
+
+    @ExceptionHandler(GatewayException.class)
+    public ResponseEntity<ErrorResponse>
+    handleGatewayException(
+            GatewayException ex) {
+
+        ErrorResponse error =
+                ErrorResponse.builder()
+                        .message(ex.getMessage())
+                        .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(error);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex) {

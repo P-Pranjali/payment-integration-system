@@ -3,6 +3,8 @@ package com.company.payment_system.service.impl;
 import com.company.payment_system.dto.*;
 import com.company.payment_system.entity.PaymentTransaction;
 import com.company.payment_system.enums.PaymentStatus;
+import com.company.payment_system.exception.GatewayException;
+import com.company.payment_system.gateway.PaymentGateway;
 import com.company.payment_system.repository.PaymentTransactionRepository;
 import com.company.payment_system.service.PaymentService;
 import com.company.payment_system.util.TransactionIdGenerator;
@@ -31,6 +33,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentTransactionRepository repository;
 
+    private final PaymentGateway paymentGateway;
+
     @Override
     public PaymentResponse initiatePayment(PaymentRequest request) {
 
@@ -49,11 +53,31 @@ public class PaymentServiceImpl implements PaymentService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
+        //repository.save(transaction);
+
+        try{
+            String gatewayResult =
+                    paymentGateway.processPayment(request);
+
+            transaction.setStatus(
+                    PaymentStatus.valueOf(gatewayResult)
+            );
+        }catch(GatewayException e){
+
+            log.error(
+                    "Gateway processing Failed for transaction = {} ",
+                    transactionId);
+
+            transaction.setStatus((PaymentStatus.FAILED));
+
+        }
+        transaction.setUpdatedAt(LocalDateTime.now());
+
         repository.save(transaction);
 
         return PaymentResponse.builder()
                 .transactionId(transactionId)
-                .status(PaymentStatus.PENDING.name())
+                .status(transaction.getStatus().name())
                 .message("Payment initiated successfully")
                 .timestamp(LocalDateTime.now())
                 .build();
