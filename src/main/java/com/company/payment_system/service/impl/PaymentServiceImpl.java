@@ -8,9 +8,20 @@ import com.company.payment_system.service.PaymentService;
 import com.company.payment_system.util.TransactionIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.company.payment_system.exception.InvalidPaymentStateException;
-import java.time.LocalDateTime;
+
+import java.math.BigDecimal;
+import java.time.*;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import com.company.payment_system.exception.PaymentNotFoundException;
 
 @Service
@@ -201,4 +212,204 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    @Override
+    public TransactionPageResponse getTransactionHistory(
+            PaymentStatus status,
+            LocalDate startDate,
+            LocalDate endDate,
+            int page,
+            int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<PaymentTransaction> transactions;
+
+        if (status != null) {
+
+            transactions =
+                    repository.findByStatus(status, pageable);
+
+        } else if (startDate != null && endDate != null) {
+
+            transactions =
+                    repository.findByCreatedAtBetween(
+                            startDate.atStartOfDay(),
+                            endDate.atTime(LocalTime.MAX),
+                            pageable);
+
+        } else {
+
+            transactions =
+                    repository.findAll(pageable);
+        }
+
+        return TransactionPageResponse.builder()
+                .transactions(
+                        transactions.getContent()
+                                .stream()
+                                .map(this::mapToResponse)
+                                .collect(Collectors.toList()))
+                .totalRecords(transactions.getTotalElements())
+                .totalPages(transactions.getTotalPages())
+                .currentPage(transactions.getNumber())
+                .build();
+    }
+
+    private TransactionHistoryResponse mapToResponse(
+            PaymentTransaction transaction) {
+
+        return TransactionHistoryResponse.builder()
+                .transactionId(transaction.getTransactionId())
+                .amount(transaction.getAmount())
+                .currency(transaction.getCurrency())
+                .paymentMethod(transaction.getPaymentMethod())
+                .status(transaction.getStatus())
+                .customerEmail(transaction.getCustomerEmail())
+                .retryCount(transaction.getRetryCount())
+                .createdAt(transaction.getCreatedAt())
+                .updatedAt(transaction.getUpdatedAt())
+                .build();
+    }
+
+    private double calculateSuccessRate(
+            long success,
+            long total) {
+
+        if (total == 0) {
+            return 0;
+        }
+
+        double percentage =
+                ((double) success / total) * 100;
+
+        return Math.round(percentage * 100) / 100.0;
+    }
+
+    @Override
+    public AnalyticsSummaryResponse getAnalyticsSummary() {
+
+        long totalTransactions = repository.count();
+
+        long success =
+                repository.countByStatus(PaymentStatus.SUCCESS);
+
+        long failed =
+                repository.countByStatus(PaymentStatus.FAILED);
+
+        long pending =
+                repository.countByStatus(PaymentStatus.PENDING);
+
+        BigDecimal totalProcessedAmount =
+                repository.findAllByStatus(PaymentStatus.SUCCESS)
+                        .stream()
+                        .map(PaymentTransaction::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        double successRate =
+                calculateSuccessRate(
+                        success,
+                        totalTransactions);
+
+
+        return AnalyticsSummaryResponse.builder()
+                .totalTransactions(totalTransactions)
+                .successfulTransactions(success)
+                .failedTransactions(failed)
+                .pendingTransactions(pending)
+                .successRate(successRate)
+                .totalProcessedAmount(totalProcessedAmount)
+                .build();
+    }
+
+    @Override
+    public AnalyticsSummaryResponse getAnalyticsByDateRange(
+            LocalDate startDate,
+            LocalDate endDate) {
+
+        LocalDateTime start =
+                startDate.atStartOfDay();
+
+        LocalDateTime end =
+                endDate.atTime(LocalTime.MAX);
+
+        long total =
+                repository.countByCreatedAtBetween(start, end);
+
+        long success =
+                repository.countByStatusAndCreatedAtBetween(
+                        PaymentStatus.SUCCESS,
+                        start,
+                        end);
+
+        long failed =
+                repository.countByStatusAndCreatedAtBetween(
+                        PaymentStatus.FAILED,
+                        start,
+                        end);
+
+        long pending =
+                repository.countByStatusAndCreatedAtBetween(
+                        PaymentStatus.PENDING,
+                        start,
+                        end);
+
+        BigDecimal totalProcessedAmount =
+                repository.findByCreatedAtBetween(start, end)
+                        .stream()
+                        .filter(t ->
+                                t.getStatus() ==
+                                        PaymentStatus.SUCCESS)
+                        .map(PaymentTransaction::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+
+        double successRate =
+                calculateSuccessRate(
+                        success,
+                        total);
+
+        return AnalyticsSummaryResponse.builder()
+                .totalTransactions(total)
+                .successfulTransactions(success)
+                .failedTransactions(failed)
+                .pendingTransactions(pending)
+                .successRate(successRate)
+                .totalProcessedAmount(totalProcessedAmount)
+                .build();
+    }
+
+    @Override
+    public List<PaymentMethodAnalyticsResponse>
+    getPaymentMethodAnalytics() {
+
+        List<PaymentTransaction> transactions =
+                repository.findAll();
+
+        Map<String, List<PaymentTransaction>> grouped =
+                transactions.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        PaymentTransaction::getPaymentMethod));
+
+        List<PaymentMethodAnalyticsResponse> response =
+                new ArrayList<>();
+
+        grouped.forEach((method, txns) -> {
+
+            BigDecimal totalAmount =
+                    txns.stream()
+                            .map(PaymentTransaction::getAmount)
+                            .reduce(BigDecimal.ZERO,
+                                    BigDecimal::add);
+
+            response.add(
+                    PaymentMethodAnalyticsResponse.builder()
+                            .paymentMethod(method)
+                            .transactionCount(txns.size())
+                            .totalAmount(totalAmount)
+                            .build());
+        });
+
+        return response;
+    }
 }
