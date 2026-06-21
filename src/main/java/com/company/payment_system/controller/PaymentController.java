@@ -120,5 +120,14 @@ public class PaymentController {
                 paymentService.getPaymentMethodAnalytics());
     }
 
+    @GetMapping("/{transactionId}/audit-trail")
+    public ResponseEntity<List<PaymentAuditResponse>>
+    getAuditTrail(
+            @PathVariable String transactionId) {
+
+        return ResponseEntity.ok(
+                paymentService.getAuditTrail(transactionId));
+    }
+
 
 }

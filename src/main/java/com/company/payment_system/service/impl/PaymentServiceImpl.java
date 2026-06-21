@@ -2,10 +2,12 @@ package com.company.payment_system.service.impl;
 
 import com.company.payment_system.dto.*;
 import com.company.payment_system.entity.PaymentTransaction;
+import com.company.payment_system.enums.PaymentEventType;
 import com.company.payment_system.enums.PaymentStatus;
 import com.company.payment_system.exception.GatewayException;
 import com.company.payment_system.gateway.PaymentGateway;
 import com.company.payment_system.repository.PaymentTransactionRepository;
+import com.company.payment_system.service.AuditService;
 import com.company.payment_system.service.PaymentService;
 import com.company.payment_system.util.TransactionIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentGateway paymentGateway;
 
+    private final AuditService auditService;
+
     @Override
     public PaymentResponse initiatePayment(PaymentRequest request) {
 
@@ -55,13 +59,31 @@ public class PaymentServiceImpl implements PaymentService {
 
         //repository.save(transaction);
 
+        auditService.logEvent(
+                transactionId,
+                PaymentEventType.PAYMENT_CREATED,
+                "Payment request received");
+
+
+
         try{
             String gatewayResult =
                     paymentGateway.processPayment(request);
 
+            auditService.logEvent(
+                    transactionId,
+                    PaymentEventType.PAYMENT_PROCESSING,
+                    "Payment sent to gateway");
+
             transaction.setStatus(
                     PaymentStatus.valueOf(gatewayResult)
             );
+
+            auditService.logEvent(
+                    transactionId,
+                    PaymentEventType.PAYMENT_SUCCESS,
+                    "Payment completed successfully");
+
         }catch(GatewayException e){
 
             log.error(
@@ -69,6 +91,11 @@ public class PaymentServiceImpl implements PaymentService {
                     transactionId);
 
             transaction.setStatus((PaymentStatus.FAILED));
+
+            auditService.logEvent(
+                    transactionId,
+                    PaymentEventType.PAYMENT_FAILED,
+                    "Gateway processing failed");
 
         }
         transaction.setUpdatedAt(LocalDateTime.now());
@@ -106,6 +133,12 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public WebhookResponse updatePaymentStatus(WebhookRequest request) {
+
+        auditService.logEvent(
+                request.getTransactionId(),
+                PaymentEventType.WEBHOOK_RECEIVED,
+                "Webhook received with status "
+                        + request.getPaymentStatus());
 
         log.info("Webhook received for transactionId={}, requestedStatus={}",
                 request.getTransactionId(),
@@ -155,6 +188,12 @@ public class PaymentServiceImpl implements PaymentService {
             );
         }
         transaction.setUpdatedAt(LocalDateTime.now());
+
+        auditService.logEvent(
+                transaction.getTransactionId(),
+                PaymentEventType.STATUS_UPDATED,
+                "Status changed to "
+                        + request.getPaymentStatus());
 
         repository.save(transaction);
 
@@ -212,6 +251,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         transaction.setRetryCount(
                 transaction.getRetryCount() + 1);
+
+        auditService.logEvent(
+                transaction.getTransactionId(),
+                PaymentEventType.PAYMENT_RETRY,
+                "Retry attempt #"
+                        + transaction.getRetryCount());
 
         transaction.setStatus(PaymentStatus.PROCESSING);
 
@@ -435,5 +480,12 @@ public class PaymentServiceImpl implements PaymentService {
         });
 
         return response;
+    }
+
+    @Override
+    public List<PaymentAuditResponse>
+    getAuditTrail(String transactionId) {
+
+        return auditService.getAuditTrail(transactionId);
     }
 }
