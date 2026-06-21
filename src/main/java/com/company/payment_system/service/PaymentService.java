@@ -31,4 +31,8 @@ public interface PaymentService {
 
     List<PaymentMethodAnalyticsResponse>
     getPaymentMethodAnalytics();
+
+    List<PaymentAuditResponse>
+    getAuditTrail(String transactionId);
+
 }
